@@ -29,3 +29,16 @@ func TestNewSubscriptionInvalidPeriod(t *testing.T) {
 	_, err := domain.New("Yandex Plus", 400, uuid.New(), start, &end)
 	require.ErrorIs(t, err, domain.ErrInvalidPeriod)
 }
+
+func TestValidateRejectsEmptyServiceName(t *testing.T) {
+	start, _ := domain.ParseMonth("07-2025")
+	s, err := domain.New("   ", 400, uuid.New(), start, nil)
+	require.ErrorIs(t, err, domain.ErrInvalidServiceName)
+	require.Nil(t, s)
+}
+
+func TestValidateRejectsNilUser(t *testing.T) {
+	start, _ := domain.ParseMonth("07-2025")
+	_, err := domain.New("Yandex Plus", 400, uuid.Nil, start, nil)
+	require.ErrorIs(t, err, domain.ErrInvalidUserID)
+}

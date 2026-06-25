@@ -7,18 +7,24 @@ import (
 	"strings"
 	"time"
 
-	service "github.com/example/subscriptions-service/internal/service/subscription"
 	domain "github.com/example/subscriptions-service/internal/domain/subscription"
+	service "github.com/example/subscriptions-service/internal/service/subscription"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type SubscriptionRepository struct {
-	pool *pgxpool.Pool
+	pool Queryer
 }
 
-func NewSubscriptionRepository(pool *pgxpool.Pool) *SubscriptionRepository {
+type Queryer interface {
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
+	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
+}
+
+func NewSubscriptionRepository(pool Queryer) *SubscriptionRepository {
 	return &SubscriptionRepository{pool: pool}
 }
 
@@ -128,9 +134,7 @@ func BuildCommonFiltersForTest(userID *uuid.UUID, serviceName *string) (string, 
 	return buildCommonFilters(userID, serviceName)
 }
 
-type scanner interface{ Scan(dest ...any) error }
-
-func scanSubscription(row scanner) (*domain.Subscription, error) {
+func scanSubscription(row interface{ Scan(dest ...any) error }) (*domain.Subscription, error) {
 	var s domain.Subscription
 	var start time.Time
 	var end *time.Time

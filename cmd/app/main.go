@@ -6,7 +6,6 @@ import (
 	"flag"
 	"log/slog"
 	"net/http"
-	"os"
 	"os/signal"
 	"syscall"
 	"time"
@@ -17,35 +16,75 @@ import (
 	app "github.com/example/subscriptions-service/internal/service/subscription"
 	httptransport "github.com/example/subscriptions-service/internal/transport/http"
 	"github.com/example/subscriptions-service/internal/transport/http/handler"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+var (
+	newPool = func(ctx context.Context, cfg config.PostgresConfig) (postgres.Queryer, error) {
+		return newPoolAdapter(ctx, cfg)
+	}
+	newRepo             = postgres.NewSubscriptionRepository
+	newUseCase          = app.NewUseCase
+	newHandler          = handler.NewSubscriptionHandler
+	newRouter           = httptransport.NewRouter
+	configLoad          = config.Load
+	signalNotifyContext = signal.NotifyContext
+	newServerFn         = func(addr string, h http.Handler) *http.Server {
+		return &http.Server{Addr: addr, Handler: h, ReadHeaderTimeout: 5 * time.Second}
+	}
+)
+
+type poolCloser interface{ Close() }
+
+type poolAdapter struct{ *pgxpool.Pool }
+
+func newPoolAdapter(ctx context.Context, cfg config.PostgresConfig) (postgres.Queryer, error) {
+	pool, err := postgres.NewPool(ctx, cfg)
+	if err != nil {
+		return nil, err
+	}
+	return poolAdapter{Pool: pool}, nil
+}
+
 func main() {
+	if err := execute(); err != nil {
+		logger.New().Error("application failed", "error", err)
+	}
+}
+
+func execute() error {
 	configPath := flag.String("config", "config.yaml", "path to config file")
 	flag.Parse()
 
 	log := logger.New()
-	cfg, err := config.Load(*configPath)
+	cfg, err := configLoad(*configPath)
 	if err != nil {
-		log.Error("load config", "error", err)
-		os.Exit(1)
+		return err
 	}
 
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	return run(cfg, log)
+}
+
+func run(cfg *config.Config, log *slog.Logger) error {
+	ctx, stop := signalNotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	pool, err := postgres.NewPool(ctx, cfg.Postgres)
+	pool, err := newPool(ctx, cfg.Postgres)
 	if err != nil {
-		log.Error("connect postgres", "error", err)
-		os.Exit(1)
+		return err
 	}
-	defer pool.Close()
+	defer func() {
+		if closer, ok := pool.(poolCloser); ok {
+			closer.Close()
+		}
+	}()
 
-	repo := postgres.NewSubscriptionRepository(pool)
-	uc := app.NewUseCase(repo)
-	h := handler.NewSubscriptionHandler(uc, log)
-	router := httptransport.NewRouter(h, log)
+	repo := newRepo(pool)
+	uc := newUseCase(repo)
+	h := newHandler(uc, log)
+	router := newRouter(h, log)
 
-	srv := &http.Server{Addr: cfg.HTTP.Addr, Handler: router, ReadHeaderTimeout: 5 * time.Second}
+	srv := newServerFn(cfg.HTTP.Addr, router)
 	go func() {
 		log.Info("http server started", "addr", cfg.HTTP.Addr)
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
@@ -58,8 +97,8 @@ func main() {
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.HTTP.ShutdownTimeout)
 	defer cancel()
 	if err := srv.Shutdown(shutdownCtx); err != nil {
-		log.Error("graceful shutdown failed", slog.Any("error", err))
-		return
+		return err
 	}
 	log.Info("application stopped")
+	return nil
 }

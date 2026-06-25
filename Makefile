@@ -1,12 +1,19 @@
 APP_NAME := subscriptions-service
 MAIN_PKG := ./cmd/app
 GOCACHE ?= /private/tmp/gocache
+COVERPKG ?= ./...
+COVERPROFILE ?= coverage.out
 
-.PHONY: test build run docker-up docker-down clean
+.PHONY: test coverage build run docker-up docker-down docker-reset clean
 
 test:
 	@mkdir -p $(GOCACHE)
 	GOCACHE=$(GOCACHE) go test ./...
+
+coverage:
+	@mkdir -p $(GOCACHE)
+	GOCACHE=$(GOCACHE) go test -coverpkg=$(COVERPKG) -coverprofile=$(COVERPROFILE) ./...
+	go tool cover -html=$(COVERPROFILE)
 
 build:
 	go build -o bin/$(APP_NAME) $(MAIN_PKG)

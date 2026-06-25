@@ -30,3 +30,16 @@ func TestLoadRequiresDSN(t *testing.T) {
 	_, err := config.Load("")
 	require.Error(t, err)
 }
+
+func TestLoadIgnoresInvalidNumericEnvValues(t *testing.T) {
+	t.Setenv("POSTGRES_DSN", "postgres://user:pass@localhost:5432/db?sslmode=disable")
+	t.Setenv("POSTGRES_MAX_CONNS", "not-a-number")
+	t.Setenv("POSTGRES_MIN_CONNS", "also-bad")
+	t.Setenv("POSTGRES_MAX_CONN_LIFETIME", "broken")
+
+	cfg, err := config.Load("")
+	require.NoError(t, err)
+	require.Equal(t, int32(10), cfg.Postgres.MaxConns)
+	require.Equal(t, int32(1), cfg.Postgres.MinConns)
+	require.Equal(t, time.Hour, cfg.Postgres.MaxConnLifetime)
+}

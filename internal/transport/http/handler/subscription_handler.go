@@ -10,17 +10,17 @@ import (
 	"strconv"
 	"strings"
 
-	app "github.com/example/subscriptions-service/internal/service/subscription"
 	domain "github.com/example/subscriptions-service/internal/domain/subscription"
+	app "github.com/example/subscriptions-service/internal/service/subscription"
 	"github.com/google/uuid"
 )
 
 type SubscriptionHandler struct {
-	uc  *app.UseCase
+	uc  SubscriptionService
 	log *slog.Logger
 }
 
-func NewSubscriptionHandler(uc *app.UseCase, log *slog.Logger) *SubscriptionHandler {
+func NewSubscriptionHandler(uc SubscriptionService, log *slog.Logger) *SubscriptionHandler {
 	return &SubscriptionHandler{uc: uc, log: log}
 }
 

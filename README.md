@@ -1,5 +1,7 @@
 # Subscriptions Service
 
+[![Coverage](https://img.shields.io/badge/coverage-42.6%25-brightgreen)](./coverage.out)
+
 REST-сервис для учета онлайн-подписок пользователей и подсчета суммарной стоимости подписок за выбранный период.
 
 ## Стек
@@ -125,8 +127,23 @@ curl 'http://localhost:8080/api/v1/subscriptions/total-cost?from=07-2025&to=12-2
 
 ## Тесты
 
+Текущее покрытие: `42.6%`
+
 ```bash
 go test ./...
+```
+
+Покрытие:
+
+```bash
+make coverage
+```
+
+Или вручную:
+
+```bash
+go test -coverpkg=./... -coverprofile=coverage.out ./...
+go tool cover -html=coverage.out
 ```
 
 ## OpenAPI

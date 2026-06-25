@@ -80,6 +80,27 @@ func TestUseCaseCreateInvalidDate(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestUseCaseListNormalizesPagination(t *testing.T) {
+	repo := newFakeRepo()
+	uc := service.NewUseCase(repo)
+
+	items, err := uc.List(context.Background(), service.ListFilter{Limit: 0, Offset: -10})
+	require.NoError(t, err)
+	require.Empty(t, items)
+}
+
+func TestUseCaseDeleteMissingReturnsNotFound(t *testing.T) {
+	uc := service.NewUseCase(newFakeRepo())
+	err := uc.Delete(context.Background(), uuid.New())
+	require.ErrorIs(t, err, domain.ErrNotFound)
+}
+
+func TestUseCaseGetMissingReturnsNotFound(t *testing.T) {
+	uc := service.NewUseCase(newFakeRepo())
+	_, err := uc.Get(context.Background(), uuid.New())
+	require.ErrorIs(t, err, domain.ErrNotFound)
+}
+
 func TestUseCaseTotalCostInvalidPeriod(t *testing.T) {
 	uc := service.NewUseCase(newFakeRepo())
 	from, _ := domain.ParseMonth("12-2025")
@@ -87,3 +108,19 @@ func TestUseCaseTotalCostInvalidPeriod(t *testing.T) {
 	_, err := uc.TotalCost(context.Background(), service.CostFilter{PeriodFrom: from, PeriodTo: to})
 	require.ErrorIs(t, err, domain.ErrInvalidPeriod)
 }
+
+func TestUseCaseUpdateInvalidPeriod(t *testing.T) {
+	uc := service.NewUseCase(newFakeRepo())
+	id := uuid.New()
+	_, err := uc.Update(context.Background(), service.UpdateCommand{
+		ID:          id,
+		ServiceName: "Yandex Plus",
+		Price:       400,
+		UserID:      uuid.New(),
+		StartDate:   "07-2025",
+		EndDate:     strPtr("06-2025"),
+	})
+	require.ErrorIs(t, err, domain.ErrInvalidPeriod)
+}
+
+func strPtr(v string) *string { return &v }

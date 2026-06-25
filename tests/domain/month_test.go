@@ -17,3 +17,13 @@ func TestParseMonthInvalidFormat(t *testing.T) {
 	_, err := domain.ParseMonth("2025-07")
 	require.Error(t, err)
 }
+
+func TestParseMonthEmptyString(t *testing.T) {
+	_, err := domain.ParseMonth("")
+	require.Error(t, err)
+}
+
+func TestNewMonthRejectsInvalidValues(t *testing.T) {
+	_, err := domain.NewMonth(0, 13)
+	require.Error(t, err)
+}
