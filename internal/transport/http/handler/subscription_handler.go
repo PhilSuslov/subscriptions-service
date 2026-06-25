@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 
-	app "github.com/example/subscriptions-service/internal/application/subscription"
+	app "github.com/example/subscriptions-service/internal/service/subscription"
 	domain "github.com/example/subscriptions-service/internal/domain/subscription"
 	"github.com/google/uuid"
 )

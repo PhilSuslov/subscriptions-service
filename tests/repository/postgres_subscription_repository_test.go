@@ -1,8 +1,9 @@
-package postgres
+package repository_test
 
 import (
 	"testing"
 
+	postgres "github.com/example/subscriptions-service/internal/repository/postgres"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )
@@ -11,7 +12,7 @@ func TestBuildCommonFilters(t *testing.T) {
 	userID := uuid.MustParse("60601fee-2bf1-4721-ae6f-7636e79a0cba")
 	serviceName := " Yandex Plus "
 
-	where, args := buildCommonFilters(&userID, &serviceName)
+	where, args := postgres.BuildCommonFiltersForTest(&userID, &serviceName)
 
 	require.Equal(t, "WHERE user_id=$1 AND service_name ILIKE $2", where)
 	require.Len(t, args, 2)
@@ -20,7 +21,7 @@ func TestBuildCommonFilters(t *testing.T) {
 }
 
 func TestBuildCommonFiltersEmpty(t *testing.T) {
-	where, args := buildCommonFilters(nil, nil)
+	where, args := postgres.BuildCommonFiltersForTest(nil, nil)
 
 	require.Empty(t, where)
 	require.Empty(t, args)

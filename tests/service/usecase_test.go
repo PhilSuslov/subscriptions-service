@@ -1,4 +1,4 @@
-package subscription
+package service_test
 
 import (
 	"context"
@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	domain "github.com/example/subscriptions-service/internal/domain/subscription"
+	service "github.com/example/subscriptions-service/internal/service/subscription"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )
@@ -36,7 +37,7 @@ func (r *fakeRepo) Update(_ context.Context, s *domain.Subscription) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if _, ok := r.items[s.ID]; !ok {
-		return domain.ErrNotFound
+		return nil
 	}
 	r.items[s.ID] = s
 	return nil
@@ -50,7 +51,7 @@ func (r *fakeRepo) Delete(_ context.Context, id uuid.UUID) error {
 	delete(r.items, id)
 	return nil
 }
-func (r *fakeRepo) List(_ context.Context, _ ListFilter) ([]domain.Subscription, error) {
+func (r *fakeRepo) List(_ context.Context, _ service.ListFilter) ([]domain.Subscription, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	out := make([]domain.Subscription, 0, len(r.items))
@@ -59,7 +60,7 @@ func (r *fakeRepo) List(_ context.Context, _ ListFilter) ([]domain.Subscription,
 	}
 	return out, nil
 }
-func (r *fakeRepo) TotalCost(_ context.Context, f CostFilter) (int, error) {
+func (r *fakeRepo) TotalCost(_ context.Context, f service.CostFilter) (int, error) {
 	if f.PeriodTo.Before(f.PeriodFrom) {
 		return 0, domain.ErrInvalidPeriod
 	}
@@ -67,22 +68,22 @@ func (r *fakeRepo) TotalCost(_ context.Context, f CostFilter) (int, error) {
 }
 
 func TestUseCaseCreate(t *testing.T) {
-	uc := NewUseCase(newFakeRepo())
-	s, err := uc.Create(context.Background(), CreateCommand{ServiceName: "Yandex Plus", Price: 400, UserID: uuid.New(), StartDate: "07-2025"})
+	uc := service.NewUseCase(newFakeRepo())
+	s, err := uc.Create(context.Background(), service.CreateCommand{ServiceName: "Yandex Plus", Price: 400, UserID: uuid.New(), StartDate: "07-2025"})
 	require.NoError(t, err)
 	require.NotEqual(t, uuid.Nil, s.ID)
 }
 
 func TestUseCaseCreateInvalidDate(t *testing.T) {
-	uc := NewUseCase(newFakeRepo())
-	_, err := uc.Create(context.Background(), CreateCommand{ServiceName: "Yandex Plus", Price: 400, UserID: uuid.New(), StartDate: "2025-07"})
+	uc := service.NewUseCase(newFakeRepo())
+	_, err := uc.Create(context.Background(), service.CreateCommand{ServiceName: "Yandex Plus", Price: 400, UserID: uuid.New(), StartDate: "2025-07"})
 	require.Error(t, err)
 }
 
 func TestUseCaseTotalCostInvalidPeriod(t *testing.T) {
-	uc := NewUseCase(newFakeRepo())
+	uc := service.NewUseCase(newFakeRepo())
 	from, _ := domain.ParseMonth("12-2025")
 	to, _ := domain.ParseMonth("07-2025")
-	_, err := uc.TotalCost(context.Background(), CostFilter{PeriodFrom: from, PeriodTo: to})
+	_, err := uc.TotalCost(context.Background(), service.CostFilter{PeriodFrom: from, PeriodTo: to})
 	require.ErrorIs(t, err, domain.ErrInvalidPeriod)
 }

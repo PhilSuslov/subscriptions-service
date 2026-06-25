@@ -11,10 +11,10 @@ import (
 	"syscall"
 	"time"
 
-	app "github.com/example/subscriptions-service/internal/application/subscription"
 	"github.com/example/subscriptions-service/internal/config"
 	"github.com/example/subscriptions-service/internal/infrastructure/logger"
-	"github.com/example/subscriptions-service/internal/infrastructure/postgres"
+	"github.com/example/subscriptions-service/internal/repository/postgres"
+	app "github.com/example/subscriptions-service/internal/service/subscription"
 	httptransport "github.com/example/subscriptions-service/internal/transport/http"
 	"github.com/example/subscriptions-service/internal/transport/http/handler"
 )

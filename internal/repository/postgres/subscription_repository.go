@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	app "github.com/example/subscriptions-service/internal/application/subscription"
+	service "github.com/example/subscriptions-service/internal/service/subscription"
 	domain "github.com/example/subscriptions-service/internal/domain/subscription"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -64,7 +64,7 @@ func (r *SubscriptionRepository) Delete(ctx context.Context, id uuid.UUID) error
 	return nil
 }
 
-func (r *SubscriptionRepository) List(ctx context.Context, f app.ListFilter) ([]domain.Subscription, error) {
+func (r *SubscriptionRepository) List(ctx context.Context, f service.ListFilter) ([]domain.Subscription, error) {
 	where, args := buildCommonFilters(f.UserID, f.ServiceName)
 	args = append(args, f.Limit, f.Offset)
 	query := fmt.Sprintf(`SELECT id, service_name, price, user_id, start_month, end_month, created_at, updated_at FROM subscriptions %s ORDER BY created_at DESC, id DESC LIMIT $%d OFFSET $%d`, where, len(args)-1, len(args))
@@ -84,7 +84,7 @@ func (r *SubscriptionRepository) List(ctx context.Context, f app.ListFilter) ([]
 	return items, rows.Err()
 }
 
-func (r *SubscriptionRepository) TotalCost(ctx context.Context, f app.CostFilter) (int, error) {
+func (r *SubscriptionRepository) TotalCost(ctx context.Context, f service.CostFilter) (int, error) {
 	where, args := buildCommonFilters(f.UserID, f.ServiceName)
 	periodArgsStart := len(args) + 1
 	args = append(args, f.PeriodFrom.Time, f.PeriodTo.Time)
@@ -93,7 +93,6 @@ func (r *SubscriptionRepository) TotalCost(ctx context.Context, f app.CostFilter
 	} else {
 		where += " AND "
 	}
-	// Считаем пересечение срока действия подписки с выбранным периодом помесячно.
 	where += fmt.Sprintf(`start_month <= $%d AND (end_month IS NULL OR end_month >= $%d)`, periodArgsStart+1, periodArgsStart)
 	query := fmt.Sprintf(`
 		SELECT COALESCE(SUM(price * (
@@ -123,6 +122,10 @@ func buildCommonFilters(userID *uuid.UUID, serviceName *string) (string, []any) 
 		return "", args
 	}
 	return "WHERE " + strings.Join(clauses, " AND "), args
+}
+
+func BuildCommonFiltersForTest(userID *uuid.UUID, serviceName *string) (string, []any) {
+	return buildCommonFilters(userID, serviceName)
 }
 
 type scanner interface{ Scan(dest ...any) error }

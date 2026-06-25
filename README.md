@@ -39,6 +39,13 @@ curl http://localhost:8080/health
 
 Для промышленного запуска лучше использовать отдельный инструмент миграций: goose, golang-migrate или tern.
 
+## Хранение данных
+
+Данные PostgreSQL сохраняются в именованном volume `subscriptions_pgdata`.
+
+- `docker compose down` останавливает контейнеры, но не удаляет данные;
+- `docker compose down -v` или `docker volume rm subscriptions_pgdata` удаляют данные полностью.
+
 ## Переменные окружения
 
 - `HTTP_ADDR` — адрес HTTP-сервера, по умолчанию `:8080`;

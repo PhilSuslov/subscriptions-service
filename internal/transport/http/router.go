@@ -4,8 +4,8 @@ import (
 	"log/slog"
 	nethttp "net/http"
 
-	"github.com/example/subscriptions-service/internal/transport/http/handler"
 	"github.com/example/subscriptions-service/internal/transport/http/middleware"
+	"github.com/example/subscriptions-service/internal/transport/http/handler"
 )
 
 func NewRouter(h *handler.SubscriptionHandler, log *slog.Logger) nethttp.Handler {
