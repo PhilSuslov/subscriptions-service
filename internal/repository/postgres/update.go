@@ -14,8 +14,11 @@ func (r *SubscriptionRepository) Update(ctx context.Context, s *domain.Subscript
 	WHERE id=$1
 	RETURNING created_at, updated_at`
 
-	err := r.pool.QueryRow(ctx, query, s.ID, s.ServiceName, s.Price, s.UserID,
-		s.StartMonth.Time, s.EndMonth.Time).Scan(&s.CreatedAt, &s.UpdatedAt)
+	var end any
+	if s.EndMonth != nil {
+		end = s.EndMonth.Time
+	}
+	err := r.pool.QueryRow(ctx, query, s.ID, s.ServiceName, s.Price, s.UserID, s.StartMonth.Time, end).Scan(&s.CreatedAt, &s.UpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.ErrNotFound
 	}

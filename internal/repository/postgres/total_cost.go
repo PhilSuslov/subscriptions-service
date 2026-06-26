@@ -14,27 +14,19 @@ func (r *SubscriptionRepository) TotalCost(ctx context.Context, f service.CostFi
 
 	periodFromArg := len(args) - 1
 	periodToArg := len(args)
-	clauses = append(clauses,
-		fmt.Sprintf("start_month <= $%d", periodToArg),
-		fmt.Sprintf("(end_month IS NULL OR end_month >= $%d)", periodFromArg),
-	)
+	clauses = append(clauses, fmt.Sprintf("start_month <= $%d", periodToArg), fmt.Sprintf("(end_month IS NULL OR end_month >= $%d)", periodFromArg))
 
+	where := "WHERE " + strings.Join(clauses, " AND ")
 	query := fmt.Sprintf(`
 	SELECT COALESCE(SUM(
 		price * (
-			(EXTRACT(YEAR FROM age(LEAST(COALESCE(end_month, $%d), $%d), GREATEST(start_month, $%d)))::int * 12) +
-			EXTRACT(MONTH FROM age(LEAST(COALESCE(end_month, $%d), $%d), GREATEST(start_month, $%d)))::int + 1
+			((EXTRACT(YEAR FROM LEAST(COALESCE(end_month, $%d), $%d))::int - EXTRACT(YEAR FROM GREATEST(start_month, $%d))::int) * 12) +
+			(EXTRACT(MONTH FROM LEAST(COALESCE(end_month, $%d), $%d))::int - EXTRACT(MONTH FROM GREATEST(start_month, $%d))::int) + 1
 		)
 	), 0)::int
 	FROM subscriptions
-	WHERE %s`,
-		periodToArg,
-		periodToArg,
-		periodFromArg,
-		periodToArg,
-		periodToArg,
-		periodFromArg,
-		strings.Join(clauses, " AND "),
+	%s`,
+		periodToArg, periodToArg, periodFromArg, periodToArg, periodToArg, periodFromArg, where,
 	)
 
 	var total int
