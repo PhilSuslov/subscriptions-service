@@ -30,6 +30,7 @@ type PostgresConfig struct {
 func Load(path string) (*Config, error) {
 	_ = godotenv.Load(".env")
 	cfg := defaultConfig()
+	
 	if path != "" {
 		b, err := os.ReadFile(path)
 		if err != nil {
