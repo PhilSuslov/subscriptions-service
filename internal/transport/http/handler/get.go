@@ -19,6 +19,6 @@ func (h *SubscriptionHandler) get(w http.ResponseWriter, r *http.Request) {
 		h.handleError(w, err)
 		return
 	}
-	
+
 	writeSubscriptionResponse(w, http.StatusOK, toResponse(s))
 }

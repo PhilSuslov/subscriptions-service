@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"time"
 
 	domain "github.com/example/subscriptions-service/internal/domain/subscription"
 )
@@ -12,9 +13,9 @@ func (r *SubscriptionRepository) Create(ctx context.Context, s *domain.Subscript
 	VALUES ($1,$2,$3,$4,$5,$6)
 	RETURNING created_at, updated_at`
 
-	var end any
+	var endMonth *time.Time
 	if s.EndMonth != nil {
-		end = s.EndMonth.Time
+		endMonth = &s.EndMonth.Time
 	}
-	return r.pool.QueryRow(ctx, query, s.ID, s.ServiceName, s.Price, s.UserID, s.StartMonth.Time, end).Scan(&s.CreatedAt, &s.UpdatedAt)
+	return r.pool.QueryRow(ctx, query, s.ID, s.ServiceName, s.Price, s.UserID, s.StartMonth.Time, endMonth).Scan(&s.CreatedAt, &s.UpdatedAt)
 }

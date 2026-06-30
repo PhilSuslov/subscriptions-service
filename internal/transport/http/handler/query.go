@@ -58,6 +58,6 @@ func toUpdateCommand(id uuid.UUID, req subscriptionRequest) (app.UpdateCommand, 
 	if err != nil {
 		return app.UpdateCommand{}, err
 	}
-	
+
 	return app.UpdateCommand{ID: id, ServiceName: req.ServiceName, Price: req.Price, UserID: userID, StartDate: req.StartDate, EndDate: req.EndDate}, nil
 }

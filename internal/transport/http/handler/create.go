@@ -8,7 +8,7 @@ func (h *SubscriptionHandler) create(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
-	
+
 	cmd, err := toCreateCommand(req)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err)

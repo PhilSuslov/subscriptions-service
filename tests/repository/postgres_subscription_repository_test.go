@@ -15,9 +15,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type row struct{ scan func(dest ...any) error }
+type row struct {
+	scan func(dest ...interface{}) error
+}
 
-func (r row) Scan(dest ...any) error { return r.scan(dest...) }
+func (r row) Scan(dest ...interface{}) error { return r.scan(dest...) }
 
 type rows struct {
 	steps int
@@ -29,24 +31,24 @@ func (r *rows) Err() error                                   { return r.err }
 func (r *rows) CommandTag() pgconn.CommandTag                { return pgconn.NewCommandTag("SELECT 0") }
 func (r *rows) FieldDescriptions() []pgconn.FieldDescription { return nil }
 func (r *rows) Next() bool                                   { r.steps++; return r.steps == 1 && r.err == nil }
-func (r *rows) Scan(dest ...any) error                       { return nil }
-func (r *rows) Values() ([]any, error)                       { return nil, nil }
+func (r *rows) Scan(dest ...interface{}) error               { return nil }
+func (r *rows) Values() ([]interface{}, error)               { return nil, nil }
 func (r *rows) RawValues() [][]byte                          { return nil }
 func (r *rows) Conn() *pgx.Conn                              { return nil }
 
 type queryer struct {
-	rowFn func(sql string, args ...any) pgx.Row
-	qFn   func(sql string, args ...any) (pgx.Rows, error)
-	eFn   func(sql string, args ...any) (pgconn.CommandTag, error)
+	rowFn func(sql string, args ...interface{}) pgx.Row
+	qFn   func(sql string, args ...interface{}) (pgx.Rows, error)
+	eFn   func(sql string, args ...interface{}) (pgconn.CommandTag, error)
 }
 
-func (q queryer) QueryRow(_ context.Context, sql string, args ...any) pgx.Row {
+func (q queryer) QueryRow(_ context.Context, sql string, args ...interface{}) pgx.Row {
 	return q.rowFn(sql, args...)
 }
-func (q queryer) Query(_ context.Context, sql string, args ...any) (pgx.Rows, error) {
+func (q queryer) Query(_ context.Context, sql string, args ...interface{}) (pgx.Rows, error) {
 	return q.qFn(sql, args...)
 }
-func (q queryer) Exec(_ context.Context, sql string, args ...any) (pgconn.CommandTag, error) {
+func (q queryer) Exec(_ context.Context, sql string, args ...interface{}) (pgconn.CommandTag, error) {
 	return q.eFn(sql, args...)
 }
 
@@ -64,22 +66,22 @@ func TestRepositoryHappyPath(t *testing.T) {
 	end := time.Date(2025, 12, 1, 0, 0, 0, 0, time.UTC)
 	now := time.Date(2025, 6, 25, 12, 0, 0, 0, time.UTC)
 	q := queryer{
-		rowFn: func(sql string, args ...any) pgx.Row {
+		rowFn: func(sql string, args ...interface{}) pgx.Row {
 			switch {
 			case sql[:6] == "INSERT":
-				return row{scan: func(dest ...any) error {
+				return row{scan: func(dest ...interface{}) error {
 					*(dest[0].(*time.Time)) = now
 					*(dest[1].(*time.Time)) = now
 					return nil
 				}}
 			case sql[:6] == "UPDATE":
-				return row{scan: func(dest ...any) error {
+				return row{scan: func(dest ...interface{}) error {
 					*(dest[0].(*time.Time)) = now
 					*(dest[1].(*time.Time)) = now
 					return nil
 				}}
 			case sql[:6] == "SELECT":
-				return row{scan: func(dest ...any) error {
+				return row{scan: func(dest ...interface{}) error {
 					*(dest[0].(*uuid.UUID)) = id
 					*(dest[1].(*string)) = "Yandex Plus"
 					*(dest[2].(*int)) = 400
@@ -91,10 +93,10 @@ func TestRepositoryHappyPath(t *testing.T) {
 					return nil
 				}}
 			}
-			return row{scan: func(dest ...any) error { return nil }}
+			return row{scan: func(dest ...interface{}) error { return nil }}
 		},
-		qFn: func(string, ...any) (pgx.Rows, error) { return &rows{}, nil },
-		eFn: func(string, ...any) (pgconn.CommandTag, error) { return pgconn.NewCommandTag("DELETE 1"), nil },
+		qFn: func(string, ...interface{}) (pgx.Rows, error) { return &rows{}, nil },
+		eFn: func(string, ...interface{}) (pgconn.CommandTag, error) { return pgconn.NewCommandTag("DELETE 1"), nil },
 	}
 	repo := postgres.NewSubscriptionRepository(q)
 	s := &domain.Subscription{ID: id, ServiceName: "Yandex Plus", Price: 400, UserID: uuid.New(), StartMonth: domain.Month{Time: start}, EndMonth: &domain.Month{Time: end}}
@@ -108,11 +110,11 @@ func TestRepositoryHappyPath(t *testing.T) {
 
 func TestRepositoryErrors(t *testing.T) {
 	repo := postgres.NewSubscriptionRepository(queryer{
-		rowFn: func(string, ...any) pgx.Row {
-			return row{scan: func(dest ...any) error { return pgx.ErrNoRows }}
+		rowFn: func(string, ...interface{}) pgx.Row {
+			return row{scan: func(dest ...interface{}) error { return pgx.ErrNoRows }}
 		},
-		qFn: func(string, ...any) (pgx.Rows, error) { return nil, errors.New("query") },
-		eFn: func(string, ...any) (pgconn.CommandTag, error) { return pgconn.NewCommandTag("DELETE 0"), nil },
+		qFn: func(string, ...interface{}) (pgx.Rows, error) { return nil, errors.New("query") },
+		eFn: func(string, ...interface{}) (pgconn.CommandTag, error) { return pgconn.NewCommandTag("DELETE 0"), nil },
 	})
 	_, err := repo.GetByID(context.Background(), uuid.New())
 	require.ErrorIs(t, err, domain.ErrNotFound)
@@ -127,9 +129,9 @@ func TestRepositoryNilEndMonth(t *testing.T) {
 	now := time.Date(2025, 6, 25, 12, 0, 0, 0, time.UTC)
 	called := false
 	repo := postgres.NewSubscriptionRepository(queryer{
-		rowFn: func(sql string, args ...any) pgx.Row {
+		rowFn: func(sql string, args ...interface{}) pgx.Row {
 			called = true
-			return row{scan: func(dest ...any) error {
+			return row{scan: func(dest ...interface{}) error {
 				*(dest[0].(*time.Time)) = now
 				*(dest[1].(*time.Time)) = now
 				return nil

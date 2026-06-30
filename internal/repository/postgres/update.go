@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"errors"
+	"time"
 
 	domain "github.com/example/subscriptions-service/internal/domain/subscription"
 	"github.com/jackc/pgx/v5"
@@ -14,11 +15,12 @@ func (r *SubscriptionRepository) Update(ctx context.Context, s *domain.Subscript
 	WHERE id=$1
 	RETURNING created_at, updated_at`
 
-	var end any
+	var endMonth *time.Time
 	if s.EndMonth != nil {
-		end = s.EndMonth.Time
+		endMonth = &s.EndMonth.Time
 	}
-	err := r.pool.QueryRow(ctx, query, s.ID, s.ServiceName, s.Price, s.UserID, s.StartMonth.Time, end).Scan(&s.CreatedAt, &s.UpdatedAt)
+	err := r.pool.QueryRow(ctx, query, s.ID, s.ServiceName, s.Price, s.UserID, s.StartMonth.Time, endMonth).Scan(
+		&s.CreatedAt, &s.UpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.ErrNotFound
 	}

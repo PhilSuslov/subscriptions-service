@@ -8,7 +8,9 @@ import (
 )
 
 func (r *SubscriptionRepository) Delete(ctx context.Context, id uuid.UUID) error {
-	ct, err := r.pool.Exec(ctx, `DELETE FROM subscriptions WHERE id=$1`, id)
+	query := `DELETE FROM subscriptions WHERE id=$1`
+
+	ct, err := r.pool.Exec(ctx, query, id)
 	if err != nil {
 		return err
 	}

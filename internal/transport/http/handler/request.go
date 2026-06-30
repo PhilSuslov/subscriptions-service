@@ -31,6 +31,6 @@ func decodeSubscriptionRequest(r *http.Request, dst *subscriptionRequest) error 
 		}
 		return fmt.Errorf("request body must contain a single JSON object")
 	}
-	
+
 	return nil
 }
