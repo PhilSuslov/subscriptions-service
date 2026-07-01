@@ -26,6 +26,25 @@ func TestParseListFilterInvalidUserID(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestParseListFilterDefaults(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/subscriptions", nil)
+
+	f, err := parseListFilter(req)
+	require.NoError(t, err)
+	require.Equal(t, 50, f.Limit)
+	require.Equal(t, 0, f.Offset)
+	require.Nil(t, f.UserID)
+	require.Nil(t, f.ServiceName)
+}
+
+func TestParseListFilterBlankServiceName(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/subscriptions?service_name=++", nil)
+
+	f, err := parseListFilter(req)
+	require.NoError(t, err)
+	require.Nil(t, f.ServiceName)
+}
+
 func TestToUpdateCommand(t *testing.T) {
 	id := uuid.New()
 	req := subscriptionRequest{

@@ -42,3 +42,16 @@ func TestValidateRejectsNilUser(t *testing.T) {
 	_, err := domain.New("Yandex Plus", 400, uuid.Nil, start, nil)
 	require.ErrorIs(t, err, domain.ErrInvalidUserID)
 }
+
+func TestValidateRejectsZeroPrice(t *testing.T) {
+	start, _ := domain.ParseMonth("07-2025")
+	s := &domain.Subscription{ServiceName: "Yandex Plus", Price: 0, UserID: uuid.New(), StartMonth: start}
+	require.ErrorIs(t, s.Validate(), domain.ErrInvalidPrice)
+}
+
+func TestValidateRejectsEndBeforeStart(t *testing.T) {
+	start, _ := domain.ParseMonth("07-2025")
+	end, _ := domain.ParseMonth("06-2025")
+	s := &domain.Subscription{ServiceName: "Yandex Plus", Price: 400, UserID: uuid.New(), StartMonth: start, EndMonth: &end}
+	require.ErrorIs(t, s.Validate(), domain.ErrInvalidPeriod)
+}

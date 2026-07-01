@@ -33,9 +33,11 @@ func Load(path string) (*Config, error) {
 
 	if path != "" {
 		b, err := os.ReadFile(path)
+
 		if err != nil {
 			return nil, fmt.Errorf("read config: %w", err)
 		}
+
 		if err := yaml.Unmarshal(b, &cfg); err != nil {
 			return nil, fmt.Errorf("parse config: %w", err)
 		}
@@ -44,6 +46,7 @@ func Load(path string) (*Config, error) {
 	if cfg.Postgres.DSN == "" {
 		return nil, fmt.Errorf("postgres dsn is required")
 	}
+
 	return &cfg, nil
 }
 
@@ -58,19 +61,23 @@ func applyEnv(cfg *Config) {
 	if v := os.Getenv("HTTP_ADDR"); v != "" {
 		cfg.HTTP.Addr = v
 	}
+
 	if v := os.Getenv("POSTGRES_DSN"); v != "" {
 		cfg.Postgres.DSN = v
 	}
+
 	if v := os.Getenv("POSTGRES_MAX_CONNS"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil {
 			cfg.Postgres.MaxConns = int32(n)
 		}
 	}
+
 	if v := os.Getenv("POSTGRES_MIN_CONNS"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil {
 			cfg.Postgres.MinConns = int32(n)
 		}
 	}
+	
 	if v := os.Getenv("POSTGRES_MAX_CONN_LIFETIME"); v != "" {
 		if d, err := time.ParseDuration(v); err == nil {
 			cfg.Postgres.MaxConnLifetime = d

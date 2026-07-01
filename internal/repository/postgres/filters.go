@@ -3,35 +3,10 @@ package postgres
 import (
 	"strconv"
 	"strings"
-	"time"
 
 	service "github.com/example/subscriptions-service/internal/service/subscription"
 	"github.com/google/uuid"
 )
-
-type subscriptionQueryFilter struct {
-	clauses []string
-	args    []any
-}
-
-func newSubscriptionQueryFilter(userID *uuid.UUID, serviceName *string) subscriptionQueryFilter {
-	filter := subscriptionQueryFilter{
-		clauses: make([]string, 0, 2),
-		args:    make([]any, 0, 2),
-	}
-
-	if userID != nil {
-		filter.clauses = append(filter.clauses, "user_id="+placeholder(len(filter.args)+1))
-		filter.args = append(filter.args, *userID)
-	}
-
-	if name, ok := normalizedServiceName(serviceName); ok {
-		filter.clauses = append(filter.clauses, "service_name ILIKE "+placeholder(len(filter.args)+1))
-		filter.args = append(filter.args, name)
-	}
-
-	return filter
-}
 
 func normalizedServiceName(serviceName *string) (string, bool) {
 	if serviceName == nil {
@@ -45,57 +20,93 @@ func placeholder(n int) string {
 	return "$" + strconv.Itoa(n)
 }
 
-func (f subscriptionQueryFilter) where() string {
-	if len(f.clauses) == 0 {
-		return ""
+func buildWhereClause(userID *uuid.UUID, serviceName *string) (string, []any) {
+	clauses := make([]string, 0, 2)
+	args := make([]any, 0, 2)
+
+	if userID != nil {
+		clauses = append(clauses, "user_id="+placeholder(len(args)+1))
+		args = append(args, *userID)
 	}
-	return "WHERE " + strings.Join(f.clauses, " AND ")
+
+	if name, ok := normalizedServiceName(serviceName); ok {
+		clauses = append(clauses, "service_name ILIKE "+placeholder(len(args)+1))
+		args = append(args, name)
+	}
+
+	if len(clauses) == 0 {
+		return "", args
+	}
+	return "WHERE " + strings.Join(clauses, " AND "), args
 }
 
-func (f subscriptionQueryFilter) listQuery() (string, []interface{}) {
-	query := `
-SELECT id, service_name, price, user_id, start_month, end_month, created_at, updated_at
-FROM subscriptions`
-	if where := f.where(); where != "" {
-		query += "\n" + where
+func buildListQuery(f service.ListFilter) (string, []any) {
+	where, args := buildWhereClause(f.UserID, f.ServiceName)
+
+	base := `
+	SELECT id, service_name, price, user_id, start_month, end_month, created_at, updated_at
+	FROM subscriptions`
+
+	if where != "" {
+		base += "\n" + where
 	}
-	query += "\nORDER BY created_at DESC, id DESC\nLIMIT " + placeholder(len(f.args)+1) + " OFFSET " + placeholder(len(f.args)+2)
-	return query, append([]any{}, f.args...)
+
+	switch len(args) {
+	case 0:
+		base += "\nORDER BY created_at DESC, id DESC\nLIMIT $1 OFFSET $2"
+	case 1:
+		base += "\nORDER BY created_at DESC, id DESC\nLIMIT $2 OFFSET $3"
+	case 2:
+		base += "\nORDER BY created_at DESC, id DESC\nLIMIT $3 OFFSET $4"
+	}
+
+	args = append(args, f.Limit, f.Offset)
+	return base, args
 }
 
-func (f subscriptionQueryFilter) costQuery(periodFrom, periodTo time.Time) (string, []interface{}) {
-	base := len(f.args)
-	query := `
+func buildCostQuery(f service.CostFilter) (string, []any) {
+	where, args := buildWhereClause(f.UserID, f.ServiceName)
+	base := `
 	SELECT COALESCE(SUM(
 		price * (
-			((EXTRACT(YEAR FROM LEAST(COALESCE(end_month, ` + placeholder(base+2) + `), ` + placeholder(base+2) + `))::int - EXTRACT(YEAR FROM GREATEST(start_month, ` + placeholder(base+1) + `))::int) * 12) +
-			(EXTRACT(MONTH FROM LEAST(COALESCE(end_month, ` + placeholder(base+2) + `), ` + placeholder(base+2) + `))::int - EXTRACT(MONTH FROM GREATEST(start_month, ` + placeholder(base+1) + `))::int + 1)
+			((EXTRACT(YEAR FROM LEAST(COALESCE(end_month, $END), $END))::int - EXTRACT(YEAR FROM GREATEST(start_month, $FROM))::int) * 12) +
+			(EXTRACT(MONTH FROM LEAST(COALESCE(end_month, $END), $END))::int - EXTRACT(MONTH FROM GREATEST(start_month, $FROM))::int + 1)
 		)
 	), 0)::int
 	FROM subscriptions`
-	if where := f.where(); where != "" {
-		query += "\n" + where + " AND start_month <= " + placeholder(base+1) + " AND (end_month IS NULL OR end_month >= " + placeholder(base+2) + ")"
-	} else {
-		query += "\nWHERE start_month <= " + placeholder(base+1) + " AND (end_month IS NULL OR end_month >= " + placeholder(base+2) + ")"
+
+	switch len(args) {
+	case 0:
+		base = strings.ReplaceAll(base, "$FROM", "1")
+		base = strings.ReplaceAll(base, "$END", "2")
+	case 1:
+		base = strings.ReplaceAll(base, "$FROM", "2")
+		base = strings.ReplaceAll(base, "$END", "3")
+	case 2:
+		base = strings.ReplaceAll(base, "$FROM", "3")
+		base = strings.ReplaceAll(base, "$END", "4")
 	}
-	args := append(append([]any{}, f.args...), periodFrom, periodTo)
-	return query, args
+
+	if where != "" {
+		base += "\n" + where + " AND start_month <= " + placeholder(len(args)+1) +
+			" AND (end_month IS NULL OR end_month >= " + placeholder(len(args)+2) + ")"
+	} else {
+		base += "\nWHERE start_month <= " + placeholder(len(args)+1) +
+			" AND (end_month IS NULL OR end_month >= " + placeholder(len(args)+2) + ")"
+	}
+
+	args = append(args, f.PeriodFrom.Time, f.PeriodTo.Time)
+	return base, args
 }
 
 func BuildCommonFiltersForTest(userID *uuid.UUID, serviceName *string) (string, []any) {
-	filter := newSubscriptionQueryFilter(userID, serviceName)
-	return filter.where(), filter.args
+	return buildWhereClause(userID, serviceName)
 }
 
 func baseListArgs(f service.ListFilter) (string, []any) {
-	filter := newSubscriptionQueryFilter(f.UserID, f.ServiceName)
-	query, args := filter.listQuery()
-	args = append(args, f.Limit, f.Offset)
-	return query, args
+	return buildListQuery(f)
 }
 
 func baseCostArgs(f service.CostFilter) (string, []any) {
-	filter := newSubscriptionQueryFilter(f.UserID, f.ServiceName)
-	query, args := filter.costQuery(f.PeriodFrom.Time, f.PeriodTo.Time)
-	return query, args
+	return buildCostQuery(f)
 }

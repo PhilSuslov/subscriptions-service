@@ -1,6 +1,6 @@
 # Subscriptions Service
 
-[![Coverage](https://img.shields.io/badge/coverage-42.6%25-brightgreen)](./coverage.out)
+[![Coverage](https://img.shields.io/badge/coverage-79.4%25-brightgreen)](./coverage.out)
 
 REST-сервис для учета онлайн-подписок пользователей и подсчета суммарной стоимости подписок за выбранный период.
 
@@ -17,7 +17,7 @@ Go 1.25, PostgreSQL 18, pgx, net/http, Docker Compose, OpenAPI 3.0.
 - `repository` — интерфейс хранилища находится на стороне application-слоя;
 - `infrastructure` — PostgreSQL-реализация репозитория, пул соединений, логирование;
 - `transport` — HTTP-обработчики, маршрутизация, middleware;
-- `config` — загрузка настроек из YAML и переменных окружения;
+- `config` — загрузка настроек из YAML и переменных окружения `.env`;
 - `migrations` — SQL-миграции;
 - `docs` — OpenAPI-спецификация.
 
@@ -34,6 +34,8 @@ docker compose up --build
 ```bash
 curl http://localhost:8080/health
 ```
+
+Для локального запуска чувствительные параметры берутся из `.env`, а `docker-compose.yml` подключает этот файл через `env_file`.
 
 ## Миграции
 
@@ -55,6 +57,8 @@ curl http://localhost:8080/health
 - `POSTGRES_MAX_CONNS` — максимальное число соединений в пуле;
 - `POSTGRES_MIN_CONNS` — минимальное число соединений в пуле;
 - `POSTGRES_MAX_CONN_LIFETIME` — максимальное время жизни соединения, например `1h`.
+
+Пример локального файла лежит в `.env.example`. Секреты должны храниться только в `.env`.
 
 ## API
 
@@ -127,7 +131,7 @@ curl 'http://localhost:8080/api/v1/subscriptions/total-cost?from=07-2025&to=12-2
 
 ## Тесты
 
-Текущее покрытие: `42.6%`
+Текущее покрытие: `79.4%`
 
 ```bash
 go test ./...
@@ -146,6 +150,12 @@ go test -coverpkg=./... -coverprofile=coverage.out ./...
 go tool cover -html=coverage.out
 ```
 
+Smoke-тест на весь HTTP-стек:
+
+```bash
+go test ./tests/http -run TestSmokeAllEndpoints -count=1
+```
+
 ## OpenAPI
 
 Спецификация лежит в `docs/openapi.yaml`.
@@ -157,4 +167,5 @@ go tool cover -html=coverage.out
 - добавить трассировку и метрики Prometheus;
 - добавить курсорную пагинацию вместо offset для больших таблиц;
 - добавить генерацию серверного кода из OpenAPI;
-- добавить CI с проверками `go test`, `go vet`, `golangci-lint`.
+- добавить CI с проверками `go test`, `go vet`, `golangci-lint`;
+- добавить отдельные healthcheck-команды для миграций и базы данных.

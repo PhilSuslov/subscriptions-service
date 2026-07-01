@@ -18,6 +18,7 @@ func NewPool(ctx context.Context, cfg config.PostgresConfig) (*pgxpool.Pool, err
 	pcfg.MinConns = cfg.MinConns
 	pcfg.MaxConnLifetime = cfg.MaxConnLifetime
 	pool, err := pgxpool.NewWithConfig(ctx, pcfg)
+	
 	if err != nil {
 		return nil, fmt.Errorf("create postgres pool: %w", err)
 	}
@@ -26,6 +27,6 @@ func NewPool(ctx context.Context, cfg config.PostgresConfig) (*pgxpool.Pool, err
 		pool.Close()
 		return nil, fmt.Errorf("ping postgres: %w", err)
 	}
-	
+
 	return pool, nil
 }

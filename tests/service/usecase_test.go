@@ -80,6 +80,19 @@ func TestUseCaseCreateInvalidDate(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestUseCaseCreateRejectsInvalidFields(t *testing.T) {
+	uc := service.NewUseCase(newFakeRepo())
+
+	_, err := uc.Create(context.Background(), service.CreateCommand{ServiceName: "   ", Price: 400, UserID: uuid.New(), StartDate: "07-2025"})
+	require.ErrorIs(t, err, domain.ErrInvalidServiceName)
+
+	_, err = uc.Create(context.Background(), service.CreateCommand{ServiceName: "Yandex Plus", Price: 0, UserID: uuid.New(), StartDate: "07-2025"})
+	require.ErrorIs(t, err, domain.ErrInvalidPrice)
+
+	_, err = uc.Create(context.Background(), service.CreateCommand{ServiceName: "Yandex Plus", Price: 400, UserID: uuid.Nil, StartDate: "07-2025"})
+	require.ErrorIs(t, err, domain.ErrInvalidUserID)
+}
+
 func TestUseCaseListNormalizesPagination(t *testing.T) {
 	repo := newFakeRepo()
 	uc := service.NewUseCase(repo)
@@ -87,6 +100,14 @@ func TestUseCaseListNormalizesPagination(t *testing.T) {
 	items, err := uc.List(context.Background(), service.ListFilter{Limit: 0, Offset: -10})
 	require.NoError(t, err)
 	require.Empty(t, items)
+}
+
+func TestUseCaseListAcceptsUpperBoundLimit(t *testing.T) {
+	repo := newFakeRepo()
+	uc := service.NewUseCase(repo)
+
+	_, err := uc.List(context.Background(), service.ListFilter{Limit: 100, Offset: 0})
+	require.NoError(t, err)
 }
 
 func TestUseCaseDeleteMissingReturnsNotFound(t *testing.T) {

@@ -170,3 +170,18 @@ func TestSmokeAllEndpoints(t *testing.T) {
 	srv.ServeHTTP(healthRec, healthReq)
 	require.Equal(t, nethttp.StatusOK, healthRec.Code)
 }
+
+func TestSmokeRejectsInvalidCreatePayload(t *testing.T) {
+	repo := newSmokeRepo()
+	uc := app.NewUseCase(repo)
+	h := handler.NewSubscriptionHandler(uc, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
+	srv := routerhttp.NewRouter(h, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
+
+	body := `{"service_name":"   ","price":400,"user_id":"60601fee-2bf1-4721-ae6f-7636e79a0cba","start_date":"07-2025"}`
+	req := httptest.NewRequest(nethttp.MethodPost, "/api/v1/subscriptions", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	srv.ServeHTTP(rec, req)
+	require.Equal(t, nethttp.StatusBadRequest, rec.Code)
+}
